@@ -109,7 +109,7 @@ const ButterflySpecies = ({ navigation }: { navigation: any }) => {
             >
               <Ionicons name="close-circle" size={20} color="#666" />
             </TouchableOpacity>
-          )}
+          )}^
         </View>
       </View>
       <FlatList
