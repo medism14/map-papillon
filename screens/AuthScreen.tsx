@@ -14,7 +14,7 @@ import { useForm, Controller } from "react-hook-form";
 import { CommonActions } from "@react-navigation/native";
 import { useDispatch } from "react-redux";
 import { login } from "../redux/authSlice/authSlice";
-import axios from "axios";
+import api from "../api/api";
 
 const AuthScreen = ({ navigation }: { navigation: any }) => {
   const dispatch = useDispatch();
@@ -44,8 +44,8 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
 
   const handleAuth = async (data: any) => {
     try {
-      const response = await axios.post(
-        `https://daviddurand.info/D228/papillons/login/${data.username}`,
+      const response = await api.post(
+        `/login/${data.username}`,
         {},
         {
           headers: {

@@ -8,38 +8,17 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import axios from "axios";
-
-// Import statique des images
-// const butterflyImages: any = {
-//   "Apaturinae": require("../assets/Apaturinae.jpg"),
-//   "Charaxinae": require("../assets/Charaxinae.jpg"), 
-//   "Coliadinae": require("../assets/Coliadinae.jpg"),
-//   "Danainae": require("../assets/Danainae.jpg"),
-//   "Dismorphiinae": require("../assets/Dismorphiinae.jpg"),
-//   "Heliconiinae": require("../assets/Heliconiinae.jpg"),
-//   "Hesperiinae": require("../assets/Hesperiinae.jpg"),
-//   "Heteropterinae": require("../assets/Heteropterinae.jpg"),
-//   "Libytheinae": require("../assets/Libytheinae.jpg"),
-//   "Limenitidinae": require("../assets/Limenitidinae.jpg"),
-//   "Lycaeninae": require("../assets/Lycaeninae.jpg"),
-//   "Nemeobiinae": require("../assets/Nemeobiinae.jpg"),
-//   "Nymphalinae": require("../assets/Nymphalinae.jpg"),
-//   "Papilioninae": require("../assets/Papilioninae.jpg"),
-//   "Parnassiinae": require("../assets/Parnassiinae.jpg"),
-//   "Pierinae": require("../assets/Pierinae.jpg"),
-//   "Polyommatinae": require("../assets/Polyommatinae.jpg"),
-//   "Pyrginae": require("../assets/Pyrginae.jpg"),
-//   "Satyrinae": require("../assets/Satyrinae.jpg"),
-//   "Theclinae": require("../assets/Theclinae.jpg"),
-// };
+import { Ionicons } from "@expo/vector-icons";
+import api from "../api/api";
 
 const ButterflySpecies = ({ navigation }: { navigation: any }) => {
   const [butterflies, setButterflies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchButterflies();
@@ -47,12 +26,13 @@ const ButterflySpecies = ({ navigation }: { navigation: any }) => {
 
   const fetchButterflies = async () => {
     try {
-      const response = await axios.get("https://daviddurand.info/D228/papillons/liste-papillons");
+      const response = await api.get("/liste-papillons");
       const dataAll = response.data;
       const butterfliesData = Object.entries(dataAll).map(([id, data]) => ({
         id,
         ...(data as Record<string, any>),
       }));
+
       setButterflies(butterfliesData as any);
       setLoading(false);
     } catch (error) {
@@ -61,30 +41,47 @@ const ButterflySpecies = ({ navigation }: { navigation: any }) => {
     }
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.9}
-      onPress={() => navigation.navigate("DetailsSpecies", { butterfly: item })}
-    >
-      <LinearGradient
-        colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.7)"]}
-        style={styles.gradient}
+  const filteredButterflies = useMemo(() => {
+    if (!searchQuery.trim()) return butterflies;
+
+    const normalizedQuery = searchQuery.toLowerCase().trim();
+    return butterflies.filter((butterfly: any) => {
+      const nameMatch = butterfly.nom?.toLowerCase().includes(normalizedQuery);
+      const descMatch = butterfly.texte?.toLowerCase().includes(normalizedQuery);
+      return nameMatch || descMatch;
+    });
+  }, [butterflies, searchQuery]);
+
+  const renderItem = ({ item }: { item: any }) => {
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.9}
+        onPress={() =>
+          navigation.navigate("DetailsSpecies", { butterfly: item })
+        }
       >
-        <Image
-          source={require("../assets/Coliadinae.jpg")}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View style={styles.cardContent}>
-          <Text style={styles.title}>{item.nom}</Text>
-          <Text style={styles.description} numberOfLines={2}>
-            {item.texte}
-          </Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+        <LinearGradient
+          colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.7)"]}
+          style={styles.gradient}
+        >
+          <Image
+            source={{
+              uri: `https://daviddurand.info/D228/papillons/${item.image}`,
+            }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View style={styles.cardContent}>
+            <Text style={styles.title}>{item.nom}</Text>
+            <Text style={styles.description} numberOfLines={2}>
+              {item.texte}
+            </Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -96,12 +93,36 @@ const ButterflySpecies = ({ navigation }: { navigation: any }) => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher un papillon..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#666"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => setSearchQuery("")}
+            >
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
       <FlatList
-        data={butterflies}
+        data={filteredButterflies}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Aucun papillon trouvé</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -114,10 +135,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  searchContainer: {
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  clearButton: {
+    padding: 8,
+    marginRight: 4,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
   },
   list: {
     padding: 16,

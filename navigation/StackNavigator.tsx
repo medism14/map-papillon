@@ -8,6 +8,7 @@ import ButterflySpecies from "../screens/ButterflySpecies";
 import CartObservations from "../screens/CartObservations";
 import DetailsSpecies from "../screens/DetailsSpecies";
 import ObservationsList from "../screens/ObservationsList";
+import ObservationAdd from "../screens/ObservationAdd";
 import ProfileScreen from "../screens/ProfileScreen";
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
@@ -24,6 +25,15 @@ const ButterflyStack = () => {
   );
 };
 
+const ObservationStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ObservationsList" component={ObservationsList} />
+      <Stack.Screen name="ObservationAdd" component={ObservationAdd} />
+    </Stack.Navigator>
+  );
+};
+
 const TabNavigator = () => {
   return (
     <Tab.Navigator
@@ -31,7 +41,7 @@ const TabNavigator = () => {
         tabBarIcon: ({ focused }) => {
           let icon;
           switch (route.name) {
-            case "Butterflies":
+            case "Papillons":
               icon = focused ? (
                 <FontAwesome5 name="list" size={24} color="black" />
               ) : (
@@ -45,14 +55,14 @@ const TabNavigator = () => {
                 <FontAwesome name="bookmark" size={24} color="black" />
               );
               break;
-            case "Map":
+            case "Carte":
               icon = focused ? (
                 <FontAwesome name="map" size={24} color="black" />
               ) : (
                 <FontAwesome name="map" size={24} color="black" />
               );
               break;
-            case "Profile": // Ajout du cas pour la page Profil
+            case "Profil":
               icon = focused ? (
                 <FontAwesome name="user" size={24} color="black" />
               ) : (
@@ -67,22 +77,22 @@ const TabNavigator = () => {
       })}
     >
       <Tab.Screen
-        name="Butterflies"
+        name="Papillons"
         component={ButterflyStack}
         options={{ headerShown: false }}
       />
       <Tab.Screen
         name="Observations"
-        component={ObservationsList}
+        component={ObservationStack}
         options={{ headerShown: false }}
       />
       <Tab.Screen
-        name="Map"
+        name="Carte"
         component={CartObservations}
         options={{ headerShown: false }}
       />
-      <Tab.Screen // Ajout de la page Profil dans le TabNavigator
-        name="Profile"
+      <Tab.Screen
+        name="Profil"
         component={ProfileScreen}
         options={{ headerShown: false }}
       />

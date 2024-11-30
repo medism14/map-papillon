@@ -6,6 +6,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice/authSlice";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "../api/api";
 
 const ProfileScreen = () => {
   const dispatch = useDispatch();
@@ -16,6 +17,7 @@ const ProfileScreen = () => {
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem("@sessionCookie");
+      await api.post(`/logout/${username}`);
       dispatch(logout());
       resetNavigation();
     } catch (error) {
@@ -30,20 +32,6 @@ const ProfileScreen = () => {
         routes: [{ name: navigation.getState().routes[0].name }],
       })
     );
-  };
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
   };
 
   if (!isConnected) {
@@ -65,10 +53,11 @@ const ProfileScreen = () => {
 
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
           onPress={handleLogout}
-          style={styles.logoutButton}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            { transform: [{ scale: pressed ? 0.95 : 1 }] },
+          ]}
         >
           <Text style={styles.logoutText}>Se déconnecter</Text>
         </Pressable>
