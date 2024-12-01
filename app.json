@@ -22,7 +22,11 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.medism14.projethamad",
-      "versionCode": 1
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBheUGgIsqDlgd8fqERm3w5mEgaubjtXiY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Image,
+  ScrollView,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -20,6 +21,12 @@ import { Dropdown } from "react-native-element-dropdown";
 import { PapillonData } from "../types/papillonData";
 import api from "../api/api";
 
+// Coordonnées centrales de la France
+const FRANCE_CENTER = {
+  latitude: 46.227638,
+  longitude: 2.213749,
+};
+
 const ObservationAdd = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -30,25 +37,24 @@ const ObservationAdd = () => {
   const [location, setLocation] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [useCurrentLocation, setUseCurrentLocation] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState<any>(FRANCE_CENTER);
   const [loading, setLoading] = useState(false);
   const [mapZoom, setMapZoom] = useState(0.01);
   const [butterflies, setButterflies] = useState([]);
-  const [selectedButterfly, setSelectedButterfly] =
-    useState<PapillonData | null>(null);
+  const [selectedButterfly, setSelectedButterfly] = useState<PapillonData | null>(
+    butterfly || null
+  );
 
-  // Coordonnées centrales de la France
-  const FRANCE_CENTER = {
-    latitude: 46.227638,
-    longitude: 2.213749,
-  };
+  // Ajoutez cette nouvelle référence pour la carte
+  const mapRef = React.useRef<MapView>(null);
 
   useEffect(() => {
     fetchButterflies();
+  }, []); // Removed useCurrentLocation dependency
+
+  useEffect(() => {
     if (useCurrentLocation) {
       getCurrentLocation();
-    } else if (!selectedLocation) {
-      setSelectedLocation(FRANCE_CENTER);
     }
   }, [useCurrentLocation]);
 
@@ -72,20 +78,19 @@ const ObservationAdd = () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
       setErrorMsg("Permission de localisation refusée");
-      setSelectedLocation(FRANCE_CENTER); // Fallback sur le centre de la France
       return;
     }
 
     try {
       const location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
-      setSelectedLocation({
+      const newLocation = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-      });
+      };
+      setSelectedLocation(newLocation);
+      updateMapRegion(newLocation);
     } catch (error) {
       setErrorMsg("Erreur lors de la récupération de la position");
-      setSelectedLocation(FRANCE_CENTER); // Fallback sur le centre de la France
     }
   };
 
@@ -112,6 +117,7 @@ const ObservationAdd = () => {
     setLoading(true);
     try {
       const latlng = `${selectedLocation.latitude},${selectedLocation.longitude}`;
+
       await api.post(
         `/observation/${selectedButterfly.id}/${count}/${latlng}`
       );
@@ -143,94 +149,111 @@ const ObservationAdd = () => {
     );
   };
 
+  // Ajoutez cette fonction pour mettre à jour la région de la carte
+  const updateMapRegion = (newLocation: any) => {
+    mapRef.current?.animateToRegion({
+      latitude: newLocation.latitude,
+      longitude: newLocation.longitude,
+      latitudeDelta: mapZoom,
+      longitudeDelta: mapZoom,
+    });
+  };
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color="#000" />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Nouvelle observation</Text>
-
-      <View style={styles.dropdownContainer}>
-        <Text style={styles.label}>Espèce observée</Text>
-        <Dropdown
-          style={styles.dropdown}
-          data={butterflies}
-          labelField="label"
-          valueField="value"
-          onChange={(item) => setSelectedButterfly(item)}
-          renderItem={renderButterflyItem}
-          placeholder="Sélectionnez une espèce"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Nombre de papillons observés</Text>
-        <TextInput
-          style={styles.input}
-          value={count}
-          onChangeText={setCount}
-          keyboardType="numeric"
-          placeholder="Entrez le nombre"
-        />
-      </View>
-
-      <View style={styles.locationContainer}>
-        <Text style={styles.label}>Localisation</Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 20 }} style={{ flex: 1, backgroundColor: "#fff" }}>
         <TouchableOpacity
-          style={styles.locationButton}
-          onPress={() => setUseCurrentLocation(!useCurrentLocation)}
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
         >
-          <Text style={styles.buttonText}>
-            {useCurrentLocation
-              ? "Choisir sur la carte"
-              : "Utiliser ma position"}
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+
+        <Text style={styles.title}>Nouvelle observation</Text>
+
+        <View style={styles.dropdownContainer}>
+          <Text style={styles.label}>Espèce observée</Text>
+          <Dropdown
+            style={styles.dropdown}
+            data={butterflies}
+            labelField="label"
+            valueField="value"
+            value={selectedButterfly?.id}
+            onChange={(item) => setSelectedButterfly(item)}
+            renderItem={renderButterflyItem}
+            placeholder="Sélectionnez une espèce"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Nombre de papillons observés</Text>
+          <TextInput
+            style={styles.input}
+            value={count}
+            onChangeText={setCount}
+            keyboardType="numeric"
+            placeholder="Entrez le nombre"
+          />
+        </View>
+
+        <View style={styles.locationContainer}>
+          <Text style={styles.label}>Localisation</Text>
+          <TouchableOpacity
+            style={styles.locationButton}
+            onPress={() => setUseCurrentLocation(!useCurrentLocation)}
+          >
+            <Text style={styles.buttonText}>
+              {useCurrentLocation
+                ? "Choisir sur la carte"
+                : "Utiliser ma position"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {!useCurrentLocation && selectedLocation && (
+          <View style={styles.mapContainer}>
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              initialRegion={{
+                ...FRANCE_CENTER,
+                latitudeDelta: 8,
+                longitudeDelta: 8,
+              }}
+              onPress={(e) => {
+                setSelectedLocation(e.nativeEvent.coordinate);
+                updateMapRegion(e.nativeEvent.coordinate);
+              }}
+              onRegionChange={handleRegionChange}
+              zoomEnabled={true}
+              zoomControlEnabled={true}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              showsCompass={true}
+            >
+              {selectedLocation && (
+                <Marker
+                  coordinate={selectedLocation}
+                  title="Position sélectionnée"
+                  draggable
+                  onDragEnd={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
+                />
+              )}
+            </MapView>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.disabledButton]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          <Text style={styles.submitButtonText}>
+            {loading ? "Enregistrement..." : "Enregistrer l'observation"}
           </Text>
         </TouchableOpacity>
-      </View>
-
-      {!useCurrentLocation && selectedLocation && (
-        <View style={styles.mapContainer}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            initialRegion={{
-              latitude: FRANCE_CENTER.latitude,
-              longitude: FRANCE_CENTER.longitude,
-              latitudeDelta: 8, // Zoom initial pour voir la France entière
-              longitudeDelta: 8,
-            }}
-            onPress={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
-            onRegionChange={handleRegionChange}
-            zoomEnabled={true}
-            zoomControlEnabled={true}
-            minZoomLevel={5} // Limite le dézoom pour rester sur la France
-            maxZoomLevel={18}
-          >
-            {selectedLocation && (
-              <Marker
-                coordinate={selectedLocation}
-                title="Position sélectionnée"
-                draggable
-                onDragEnd={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
-              />
-            )}
-          </MapView>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[styles.submitButton, loading && styles.disabledButton]}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        <Text style={styles.submitButtonText}>
-          {loading ? "Enregistrement..." : "Enregistrer l'observation"}
-        </Text>
-      </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -242,19 +265,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 20,
-    paddingTop: 60,
   },
   backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    zIndex: 1,
+    marginTop: 30,
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 8,
-    marginTop: 30,
+    marginTop: 10,
   },
   dropdownContainer: {
     marginBottom: 20,
@@ -310,21 +330,21 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     width: "100%",
-    height: 300,
+    height: 400,
     borderRadius: 8,
     marginBottom: 20,
-    position: "relative",
+    overflow: 'hidden',
   },
   map: {
     width: "100%",
     height: "100%",
-    borderRadius: 8,
   },
   submitButton: {
     backgroundColor: "#4CAF50",
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
+    marginBottom: 20,
   },
   disabledButton: {
     opacity: 0.7,

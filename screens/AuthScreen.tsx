@@ -44,15 +44,7 @@ const AuthScreen = ({ navigation }: { navigation: any }) => {
 
   const handleAuth = async (data: any) => {
     try {
-      const response = await api.post(
-        `/login/${data.username}`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await api.post(`/login/${encodeURIComponent(data.username)}`);
 
       dispatch(login(data.username));
       reset();

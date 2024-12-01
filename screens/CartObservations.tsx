@@ -6,12 +6,13 @@ import { FontAwesome } from '@expo/vector-icons';
 import api from '../api/api';
 import { useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
+import { countries } from '../lib/countries';
 
 const CartObservations = () => {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<MapView>(null);
-  const { isConnected } = useSelector((state: any) => state.auth);
+  const [mapReady, setMapReady] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -21,48 +22,45 @@ const CartObservations = () => {
 
   const fetchObservations = async () => {
     try {
-      // Récupérer les observations par ville
-      const citiesResponse = await api.get("/liste-villes");
-      const citiesData = citiesResponse.data;
+      setLoading(true);
+      let allObservations: Observation[] = [];
 
-      if (!Array.isArray(citiesData)) {
-        throw new Error("La liste des villes n'est pas un tableau");
-      }
-
-      const allObservations = await Promise.all(
-        citiesData.map(async (cityData: {City: string, Country: string}) => {
-          if (!cityData.City) return [];
-          
-          const response = await api.get(`/liste-par-ville/${cityData.City}`);
-          return response.data;
-        })
+      // Récupérer les observations en parallèle pour tous les pays
+      const observationPromises = countries.map((country) =>
+        api.get(`/liste-par-pays/${country}`)
       );
 
-      let flattenedObservations = allObservations.flat();
+      const responses = await Promise.all(observationPromises);
 
-      // Récupérer les observations personnelles si connecté
-      if (isConnected) {
-        try {
-          const userObservationsResponse = await api.get("/mes-observations");
-          if (userObservationsResponse.data) {
-            flattenedObservations = [
-              ...flattenedObservations,
-              ...userObservationsResponse.data
-            ];
-          }
-        } catch (error) {
-          console.error("Erreur lors de la récupération des observations personnelles:", error);
+      responses.forEach((response) => {
+        if (response.data) {
+          // Filtrer les observations qui ont des coordonnées valides
+          const validObservations = response.data.filter((obs: Observation) => {
+            if (!obs.LatLng) return false;
+            const [lat, lng] = obs.LatLng.split(',').map(Number);
+            return !isNaN(lat) && !isNaN(lng);
+          });
+          allObservations = [...allObservations, ...validObservations];
         }
+      });
+
+      console.log("Nombre d'observations valides:", allObservations.length);
+      setObservations(allObservations);
+      setLoading(false);
+
+      // Si la carte est prête, on force un recentrage
+      if (mapReady && mapRef.current) {
+        const initialRegion = {
+          latitude: 46.227638,
+          longitude: 2.213749,
+          latitudeDelta: 8,
+          longitudeDelta: 8,
+        };
+        mapRef.current.animateToRegion(initialRegion, 1000);
       }
 
-      // Dédoublonner les observations
-      const uniqueObservations = Array.from(
-        new Set(flattenedObservations.map((obs) => JSON.stringify(obs)))
-      ).map((str) => JSON.parse(str));
-
-      setObservations(uniqueObservations);
-      setLoading(false);
     } catch (error) {
+      console.error("Erreur lors de la récupération des observations:", error);
       Alert.alert('Erreur', 'Impossible de charger les observations');
       setLoading(false);
     }
@@ -80,6 +78,20 @@ const CartObservations = () => {
       camera.zoom -= 1;
       mapRef.current?.animateCamera(camera, { duration: 300 });
     });
+  };
+
+  const onMapReady = () => {
+    setMapReady(true);
+    // Recharger les observations quand la carte est prête
+    if (observations.length > 0 && mapRef.current) {
+      const initialRegion = {
+        latitude: 46.227638,
+        longitude: 2.213749,
+        latitudeDelta: 8,
+        longitudeDelta: 8,
+      };
+      mapRef.current.animateToRegion(initialRegion, 1000);
+    }
   };
 
   if (loading) {
@@ -107,20 +119,34 @@ const CartObservations = () => {
           latitudeDelta: 8,
           longitudeDelta: 8,
         }}
+        showsUserLocation={true}
+        zoomEnabled={true}
+        zoomControlEnabled={true}
+        onMapReady={onMapReady}
+        onLayout={() => {
+          if (mapRef.current && observations.length > 0) {
+            const initialRegion = {
+              latitude: 46.227638,
+              longitude: 2.213749,
+              latitudeDelta: 8,
+              longitudeDelta: 8,
+            };
+            mapRef.current.animateToRegion(initialRegion, 1000);
+          }
+        }}
       >
-        {observations && observations.map((observation, index) => {
-          if (!observation.LatLng) return null;
+        {mapReady && observations.map((observation, index) => {
           const [lat, lng] = observation.LatLng.split(',').map(Number);
-          if (isNaN(lat) || isNaN(lng)) return null;
           return (
             <Marker
-              key={index}
+              key={`${index}-${lat}-${lng}`}
               coordinate={{
                 latitude: lat,
                 longitude: lng
               }}
               title={observation.TypePapillon}
               description={`Observé par ${observation.User} - ${observation.Compte} papillon(s)`}
+              pinColor="red"
             />
           );
         })}
@@ -154,7 +180,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     position: 'absolute',
-    top: 10,
+    top: 50,
     alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     padding: 10,
