@@ -14,18 +14,16 @@ const CartObservations = () => {
   const mapRef = useRef<MapView>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchObservations();
-    }, [])
-  );
+  // Utiliser useEffect au lieu de useFocusEffect pour s'assurer que les données sont chargées au montage
+  useEffect(() => {
+    fetchObservations();
+  }, []);
 
   const fetchObservations = async () => {
     try {
       setLoading(true);
       let allObservations: Observation[] = [];
 
-      // Récupérer les observations en parallèle pour tous les pays
       const observationPromises = countries.map((country) =>
         api.get(`/liste-par-pays/${country}`)
       );
@@ -34,7 +32,6 @@ const CartObservations = () => {
 
       responses.forEach((response) => {
         if (response.data) {
-          // Filtrer les observations qui ont des coordonnées valides
           const validObservations = response.data.filter((obs: Observation) => {
             if (!obs.LatLng) return false;
             const [lat, lng] = obs.LatLng.split(',').map(Number);
@@ -44,20 +41,21 @@ const CartObservations = () => {
         }
       });
 
-      console.log("Nombre d'observations valides:", allObservations.length);
       setObservations(allObservations);
       setLoading(false);
 
-      // Si la carte est prête, on force un recentrage
-      if (mapReady && mapRef.current) {
-        const initialRegion = {
-          latitude: 46.227638,
-          longitude: 2.213749,
-          latitudeDelta: 8,
-          longitudeDelta: 8,
-        };
-        mapRef.current.animateToRegion(initialRegion, 1000);
-      }
+      // Attendre un court instant avant de centrer la carte
+      setTimeout(() => {
+        if (mapRef.current) {
+          const initialRegion = {
+            latitude: 46.227638,
+            longitude: 2.213749,
+            latitudeDelta: 8,
+            longitudeDelta: 8,
+          };
+          mapRef.current.animateToRegion(initialRegion, 1000);
+        }
+      }, 500);
 
     } catch (error) {
       console.error("Erreur lors de la récupération des observations:", error);
@@ -82,16 +80,6 @@ const CartObservations = () => {
 
   const onMapReady = () => {
     setMapReady(true);
-    // Recharger les observations quand la carte est prête
-    if (observations.length > 0 && mapRef.current) {
-      const initialRegion = {
-        latitude: 46.227638,
-        longitude: 2.213749,
-        latitudeDelta: 8,
-        longitudeDelta: 8,
-      };
-      mapRef.current.animateToRegion(initialRegion, 1000);
-    }
   };
 
   if (loading) {
@@ -123,19 +111,8 @@ const CartObservations = () => {
         zoomEnabled={true}
         zoomControlEnabled={true}
         onMapReady={onMapReady}
-        onLayout={() => {
-          if (mapRef.current && observations.length > 0) {
-            const initialRegion = {
-              latitude: 46.227638,
-              longitude: 2.213749,
-              latitudeDelta: 8,
-              longitudeDelta: 8,
-            };
-            mapRef.current.animateToRegion(initialRegion, 1000);
-          }
-        }}
       >
-        {mapReady && observations.map((observation, index) => {
+        {observations.map((observation, index) => {
           const [lat, lng] = observation.LatLng.split(',').map(Number);
           return (
             <Marker

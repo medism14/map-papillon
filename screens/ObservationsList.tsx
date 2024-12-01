@@ -7,9 +7,10 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  TouchableOpacity,
   Modal,
   Animated,
+  Pressable,
+  TouchableOpacity,
 } from "react-native";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Observation } from "../types/observation";
@@ -28,8 +29,7 @@ const ObservationsList = () => {
   const [filteredObservations, setFilteredObservations] = useState<
     Observation[]
   >([]);
-  const [loading, setLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
@@ -64,7 +64,7 @@ const ObservationsList = () => {
       if (filterModalVisible) {
         setFilterModalVisible(false);
       }
- 
+
       setLoading(true);
       let allObservations: Observation[] = [];
 
@@ -121,7 +121,6 @@ const ObservationsList = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setIsInitialLoading(false);
     }
   }, [showOnlyMyObservations, username]);
 
@@ -142,7 +141,13 @@ const ObservationsList = () => {
       });
       setFilteredObservations(filtered);
     }
-  }, [selectedCity, selectedCountry, observations, showOnlyMyObservations, loading]);
+  }, [
+    selectedCity,
+    selectedCountry,
+    observations,
+    showOnlyMyObservations,
+    loading,
+  ]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -159,8 +164,8 @@ const ObservationsList = () => {
     >
       <TouchableOpacity
         style={styles.modalOverlay}
-        activeOpacity={1}
         onPress={hideFilterModal}
+        activeOpacity={1}
       >
         <Animated.View
           style={[
@@ -171,14 +176,14 @@ const ObservationsList = () => {
           ]}
         >
           <TouchableOpacity
-            activeOpacity={1}
             onPress={(e) => {
               e.stopPropagation();
             }}
+            activeOpacity={1}
           >
             <View style={styles.filterHeader}>
               <Text style={styles.filterTitle}>Filtres</Text>
-              <TouchableOpacity onPress={hideFilterModal}>
+              <TouchableOpacity onPress={hideFilterModal} activeOpacity={0.7}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
@@ -199,6 +204,7 @@ const ObservationsList = () => {
                   setFilteredObservations(observations);
                 }
               }}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name={showOnlyMyObservations ? "checkbox" : "square-outline"}
@@ -231,6 +237,7 @@ const ObservationsList = () => {
                     <TouchableOpacity
                       style={styles.resetButton}
                       onPress={() => setSelectedCountry(null)}
+                      activeOpacity={0.7}
                     >
                       <Ionicons name="close-circle" size={24} color="#666" />
                     </TouchableOpacity>
@@ -261,6 +268,7 @@ const ObservationsList = () => {
                     <TouchableOpacity
                       style={styles.resetButton}
                       onPress={() => setSelectedCity(null)}
+                      activeOpacity={0.7}
                     >
                       <Ionicons name="close-circle" size={24} color="#666" />
                     </TouchableOpacity>
@@ -315,17 +323,18 @@ const ObservationsList = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.addButton}
+        <Pressable
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           onPress={() => navigation.navigate("ObservationAdd")}
         >
           <Ionicons name="add-circle-outline" size={24} color="#fff" />
           <Text style={styles.addButtonText}>Nouvelle observation</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         <TouchableOpacity
           style={styles.filterButton}
           onPress={showFilterModal}
+          activeOpacity={0.7}
         >
           <Ionicons name="filter" size={24} color="#16537E" />
         </TouchableOpacity>
@@ -385,6 +394,9 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: "#fff",
     fontWeight: "600",
+  },
+  pressed: {
+    transform: [{ scale: 0.95 }],
   },
   filterButton: {
     padding: 8,
